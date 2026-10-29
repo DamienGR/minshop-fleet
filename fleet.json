@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "core": { "repository": "DamienGR/minshop-platform" },
+  "shops": [
+    { "slug": "pilote-certif", "path": "../shop-pilote-certif", "repository": "DamienGR/shop-pilote-certif" }
+  ]
+}
