@@ -1,4 +1,4 @@
-// Généré par `shopctl fleet init` depuis le socle v0.3.33. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
+// Généré par `shopctl fleet init` depuis le socle v0.13.0. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
 //
 // What the fleet's workflows ask of fleet.json and of a shop's tree, in one
 // place rather than inline in each job. No dependency: it runs before any
