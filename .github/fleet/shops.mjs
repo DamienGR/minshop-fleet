@@ -1,12 +1,17 @@
-// Généré par `shopctl fleet init` depuis le socle v0.13.1. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
+// Généré par `shopctl fleet init` depuis le socle v0.13.4. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
 //
 // What the fleet's workflows ask of fleet.json and of a shop's tree, in one
 // place rather than inline in each job. No dependency: it runs before any
 // `npm ci`, on whatever Node the runner has.
 //
 //   node .github/fleet/shops.mjs repository <slug>   repository=<owner/repo>
-//   node .github/fleet/shops.mjs matrix              matrix=[{ slug, repository }]
-//   node .github/fleet/shops.mjs core <dir>          refuses a shop below the floor
+//   node .github/fleet/shops.mjs matrix [slug] [report]
+//                                                    matrix=[{ slug, repository }], one shop
+//                                                    when a slug is given ; with `report`,
+//                                                    the shops whose follow-up has started
+//                                                    (reportSince), and { since }
+//   node .github/fleet/shops.mjs core <dir> [report] refuses a shop below the floor —
+//                                                    the quarterly report's, with `report`
 //   node .github/fleet/shops.mjs report <name> <status>
 //                                  the part of a shopctl report a run may publish
 //
@@ -19,8 +24,12 @@ import { join } from 'node:path';
 /** The oldest core that carries the owner marker of ADR 0019. */
 const MINIMUM_CORE = '0.3.32';
 
+/** The oldest core whose shopctl writes the quarterly report (ADR 0035). */
+const REPORT_MINIMUM_CORE = '0.13.3';
+
 const REPOSITORY = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 function stop(message) {
   process.stderr.write(`::error::${message}\n`);
@@ -77,6 +86,8 @@ const KEPT = {
   deploy: [['origine', ['origin']], ['archive', ['backup', 'id']], ['bookmark', ['bookmark']], ['rollbackTo', ['rollbackTo']]],
   backup: [['archive', ['id']]],
   'backup verify': [['archive', ['id']]],
+  // The quarter and the issue: the report itself states the shop's sales.
+  report: [['trimestre', ['period', 'key']], ['issue', ['issue', 'url']]],
 };
 
 const at = (document, path) => path.reduce((value, key) => (value && typeof value === 'object' ? value[key] : undefined), document);
@@ -145,11 +156,29 @@ if (command === 'repository') {
   if (!reachable(shop)) stop(`« ${argument} » n'a pas de dépôt (repository: propriétaire/dépôt) dans fleet.json.`);
   process.stdout.write(`repository=${shop.repository}\n`);
 } else if (command === 'matrix') {
-  const shops = registry();
+  if (extra !== undefined && extra !== 'report') stop(`liste inconnue : ${extra}. Attendu : report, ou rien.`);
+  let shops = registry();
+  if (argument) {
+    shops = shops.filter((entry) => entry?.slug === argument);
+    if (shops.length === 0) stop(`« ${argument} » n'est pas une boutique de fleet.json.`);
+  }
   for (const entry of shops.filter((candidate) => !reachable(candidate))) {
     process.stderr.write(`::warning::${String(entry?.slug ?? '(sans slug)')} : pas de dépôt dans fleet.json, ni sauvegardée ni surveillée par la flotte.\n`);
   }
-  const matrix = shops.filter(reachable).map((entry) => ({ slug: entry.slug, repository: entry.repository }));
+  let listed = shops.filter(reachable);
+  if (extra === 'report') {
+    // The quarterly report (ADR 0035) goes to the shops whose follow-up has
+    // started: `reportSince` in fleet.json. A certification or demonstration
+    // shop has none, and no merchant to send a report to.
+    for (const entry of listed) {
+      const since = entry.reportSince;
+      if (since === undefined) process.stderr.write(`::notice::${entry.slug} : pas de rapport trimestriel, son suivi n'a pas commencé (pas de reportSince dans fleet.json).\n`);
+      else if (!DAY.test(String(since))) process.stderr.write(`::warning::${entry.slug} : reportSince « ${String(since)} » n'est pas une date AAAA-MM-JJ ; pas de rapport trimestriel.\n`);
+    }
+    listed = listed.filter((entry) => DAY.test(String(entry.reportSince ?? '')));
+    if (argument && listed.length === 0) stop(`${argument} n'a pas de reportSince valable dans fleet.json : son suivi n'a pas commencé.`);
+  }
+  const matrix = listed.map((entry) => ({ slug: entry.slug, repository: entry.repository, ...(extra === 'report' ? { since: entry.reportSince } : {}) }));
   process.stdout.write(`matrix=${JSON.stringify(matrix)}\n`);
 } else if (command === 'core') {
   let version;
@@ -160,6 +189,11 @@ if (command === 'repository') {
   }
   if (below(version, MINIMUM_CORE)) {
     stop(`la boutique est sur le socle ${version} ; le compte mutualisé demande ${MINIMUM_CORE} au moins, qui marque chaque base à sa boutique (ADR 0019). Montez-la (shopctl core upgrade) avant de la déployer ou de la sauvegarder d'ici.`);
+  }
+  if (extra === 'report' && below(version, REPORT_MINIMUM_CORE)) {
+    stop(`la boutique est sur le socle ${version} ; le rapport trimestriel demande ${REPORT_MINIMUM_CORE} au moins, dont la CLI l'écrit (ADR 0035). Montez-la (shopctl core upgrade).`);
+  } else if (extra !== undefined && extra !== 'report') {
+    stop(`plancher inconnu : ${extra}. Attendu : report, ou rien.`);
   }
   process.stdout.write(`core=${version}\n`);
 } else if (command === 'report') {

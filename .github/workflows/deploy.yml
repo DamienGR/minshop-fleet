@@ -1,4 +1,4 @@
-# Généré par `shopctl fleet init` depuis le socle v0.13.1. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
+# Généré par `shopctl fleet init` depuis le socle v0.13.4. Relancez-le pour le mettre à jour : une modification à la main est perdue au passage suivant.
 #
 # Deploying one shop of the fleet on the shared Cloudflare account (ADR 0019).
 #
