@@ -3,6 +3,6 @@
   "core": { "repository": "DamienGR/minshop-platform" },
   "shops": [
     { "slug": "pilote-certif", "path": "../shop-pilote-certif", "repository": "DamienGR/shop-pilote-certif" },
-    { "slug": "artisagna", "path": "../dev/artisagna", "repository": "Dg-tech-dev/artisagna" }
+    { "slug": "artisagna", "path": "../dev/artisagna", "repository": "Dg-tech-dev/artisagna", "reportSince": "2026-11-22" }
   ]
 }
